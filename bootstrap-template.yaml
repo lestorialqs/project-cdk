@@ -6,6 +6,7 @@ Parameters:
       Description: "El nombre del rol IAM existente (LabRole) al que se adjuntarán estas políticas."
       # Puedes poner un valor por defecto si siempre es el mismo
       # Default: MiLabRolePreexistente
+      Default: LabRole
 
   TrustedAccounts:
     Description: List of AWS accounts that are trusted to publish assets and deploy
