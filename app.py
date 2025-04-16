@@ -3,9 +3,6 @@ import aws_cdk as cdk
 from aws_cdk import DefaultStackSynthesizer, Environment
 from proyecto_cdk.proyecto_cdk_stack import VmStack
 
-app = cdk.App()
-
-
 
 
 app = cdk.App()
