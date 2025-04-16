@@ -1,28 +1,27 @@
 #!/usr/bin/env python3
-import os
-
 import aws_cdk as cdk
-
-from proyecto_cdk.proyecto_cdk_stack import ProyectoCdkStack
-
+from aws_cdk import DefaultStackSynthesizer, Environment
+from proyecto_cdk.proyecto_cdk_stack import VmStack
 
 app = cdk.App()
-ProyectoCdkStack(app, "ProyectoCdkStack",
-    # If you don't specify 'env', this stack will be environment-agnostic.
-    # Account/Region-dependent features and context lookups will not work,
-    # but a single synthesized template can be deployed anywhere.
 
-    # Uncomment the next line to specialize this stack for the AWS Account
-    # and Region that are implied by the current CLI configuration.
+synthesizer = DefaultStackSynthesizer(
+    deploy_role_arn='arn:aws:iam::708642711016:role/LabRole',
+    cloud_formation_execution_role='arn:aws:iam::708642711016:role/LabRole',
+    lookup_role_arn='arn:aws:iam::708642711016:role/LabRole',
+    file_asset_publishing_role_arn='arn:aws:iam::708642711016:role/LabRole',
+    image_asset_publishing_role_arn='arn:aws:iam::708642711016:role/LabRole',
+    qualifier='lab'
+)
 
-    #env=cdk.Environment(account=os.getenv('CDK_DEFAULT_ACCOUNT'), region=os.getenv('CDK_DEFAULT_REGION')),
-
-    # Uncomment the next line if you know exactly what Account and Region you
-    # want to deploy the stack to. */
-
-    #env=cdk.Environment(account='123456789012', region='us-east-1'),
-
-    # For more information, see https://docs.aws.amazon.com/cdk/latest/guide/environments.html
+VmStack(
+    app, 
+    "VmStack", 
+    synthesizer=synthesizer,
+    env=cdk.Environment(
+        account="708642711016",
+        region="us-east-1"
     )
+)
 
 app.synth()
