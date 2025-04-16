@@ -26,7 +26,7 @@ class VmStack(Stack):
         })
 
         # Crear instancia EC2
-        ec2.Instance(self, "VMDesarrollo",
+        ec2.Instance(self, "Instance-CDK",
             instance_type=ec2.InstanceType("t2.micro"),
             machine_image=ami,
             vpc=vpc,
