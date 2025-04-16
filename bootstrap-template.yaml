@@ -291,87 +291,8 @@ Resources:
             Condition:
               StringLike:
                 "aws:sourceArn": { "Fn::Sub": "arn:${AWS::Partition}:emr-serverless:${AWS::Region}:${AWS::AccountId}:/applications/*" }
-  ImagePublishingRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Statement:
-          # allows this role to be assumed with session tags.
-          # see https://docs.aws.amazon.com/IAM/latest/UserGuide/id_session-tags.html#id_session-tags_permissions-required
-          - Action: sts:TagSession
-            Effect: Allow
-            Principal:
-              AWS:
-                Ref: AWS::AccountId
-          - Action: sts:AssumeRole
-            Effect: Allow
-            Principal:
-              AWS:
-                Ref: AWS::AccountId
-          - Fn::If:
-              - HasTrustedAccounts
-              - Action: sts:AssumeRole
-                Effect: Allow
-                Principal:
-                  AWS:
-                    Ref: TrustedAccounts
-              - Ref: AWS::NoValue
-      RoleName:
-        Fn::Sub: cdk-${Qualifier}-image-publishing-role-${AWS::AccountId}-${AWS::Region}
-      Tags:
-        - Key: aws-cdk:bootstrap-role
-          Value: image-publishing
-  LookupRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Statement:
-          # allows this role to be assumed with session tags.
-          # see https://docs.aws.amazon.com/IAM/latest/UserGuide/id_session-tags.html#id_session-tags_permissions-required
-          - Action: sts:TagSession
-            Effect: Allow
-            Principal:
-              AWS:
-                Ref: AWS::AccountId
-          - Action: sts:AssumeRole
-            Effect: Allow
-            Principal:
-              AWS:
-                Ref: AWS::AccountId
-          - Fn::If:
-              - HasTrustedAccountsForLookup
-              - Action: sts:AssumeRole
-                Effect: Allow
-                Principal:
-                  AWS:
-                    Ref: TrustedAccountsForLookup
-              - Ref: AWS::NoValue
-          - Fn::If:
-              - HasTrustedAccounts
-              - Action: sts:AssumeRole
-                Effect: Allow
-                Principal:
-                  AWS:
-                    Ref: TrustedAccounts
-              - Ref: AWS::NoValue
-      RoleName:
-        Fn::Sub: cdk-${Qualifier}-lookup-role-${AWS::AccountId}-${AWS::Region}
-      ManagedPolicyArns:
-        - Fn::Sub: "arn:${AWS::Partition}:iam::aws:policy/ReadOnlyAccess"
-      Policies:
-        - PolicyDocument:
-            Statement:
-              - Sid: DontReadSecrets
-                Effect: Deny
-                Action:
-                  - kms:Decrypt
-                Resource: "*"
-            Version: '2012-10-17'
-          PolicyName: LookupRolePolicy
-      Tags:
-        - Key: aws-cdk:bootstrap-role
-          Value: lookup
-  LabRolePolicy:
+
+  LabRoleFilePublishinPolicy:
     Type: AWS::IAM::Policy
     Properties:
       PolicyDocument:
@@ -407,7 +328,7 @@ Resources:
       Roles:
         - Ref: LabRole  # Aquí asignas la política directamente al rol existente
       PolicyName: LabRoleFilePublishingPolicy
-  ImagePublishingRoleDefaultPolicy:
+  LabRoleImagePublishingRoleDefaultPolicy:
     Type: AWS::IAM::Policy
     Properties:
       PolicyDocument:
@@ -431,152 +352,141 @@ Resources:
             Effect: Allow
         Version: '2012-10-17'
       Roles:
-        - Ref: ImagePublishingRole
+        - Ref: LabRole
       PolicyName:
         Fn::Sub: cdk-${Qualifier}-image-publishing-role-default-policy-${AWS::AccountId}-${AWS::Region}
-  DeploymentActionRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Statement:
-          # allows this role to be assumed with session tags.
-          # see https://docs.aws.amazon.com/IAM/latest/UserGuide/id_session-tags.html#id_session-tags_permissions-required
-          - Action: sts:TagSession
-            Effect: Allow
-            Principal:
-              AWS:
-                Ref: AWS::AccountId
-          - Action: sts:AssumeRole
-            Effect: Allow
-            Principal:
-              AWS:
-                Ref: AWS::AccountId
-          - Fn::If:
-              - HasTrustedAccounts
-              - Action: sts:AssumeRole
-                Effect: Allow
-                Principal:
-                  AWS:
-                    Ref: TrustedAccounts
-              - Ref: AWS::NoValue
-      Policies:
-        - PolicyDocument:
-            Statement:
-              - Sid: CloudFormationPermissions
-                Effect: Allow
-                Action:
-                  - cloudformation:CreateChangeSet
-                  - cloudformation:DeleteChangeSet
-                  - cloudformation:DescribeChangeSet
-                  - cloudformation:DescribeStacks
-                  - cloudformation:ExecuteChangeSet
-                  - cloudformation:CreateStack
-                  - cloudformation:UpdateStack
-                  - cloudformation:RollbackStack
-                  - cloudformation:ContinueUpdateRollback
-                Resource: "*"
-              - Sid: PipelineCrossAccountArtifactsBucket
-                # Read/write buckets in different accounts. Permissions to buckets in
-                # same account are granted by bucket policies.
-                #
-                # Write permissions necessary to write outputs to the cross-region artifact replication bucket
-                # https://aws.amazon.com/premiumsupport/knowledge-center/codepipeline-deploy-cloudformation/.
-                Effect: Allow
-                Action:
-                  - s3:GetObject*
-                  - s3:GetBucket*
-                  - s3:List*
-                  - s3:Abort*
-                  - s3:DeleteObject*
-                  - s3:PutObject*
-                Resource: "*"
-                Condition:
-                    StringNotEquals:
-                        s3:ResourceAccount:
-                            Ref: 'AWS::AccountId'
-              - Sid: PipelineCrossAccountArtifactsKey
-                # Use keys only for the purposes of reading encrypted files from S3.
-                Effect: Allow
-                Action:
-                  - kms:Decrypt
-                  - kms:DescribeKey
-                  - kms:Encrypt
-                  - kms:ReEncrypt*
-                  - kms:GenerateDataKey*
-                Resource: "*"
-                Condition:
-                  StringEquals:
-                    kms:ViaService:
-                      Fn::Sub: s3.${AWS::Region}.amazonaws.com
-              - Action: iam:PassRole
-                Resource:
-                  Fn::Sub: "${CloudFormationExecutionRole.Arn}"
-                Effect: Allow
-              - Sid: CliPermissions
-                Action:
-                  # Permissions needed by the CLI when doing `cdk deploy`.
-                  # Our CI/CD does not need DeleteStack,
-                  # but we also want to use this role from the CLI,
-                  # and there you can call `cdk destroy`
-                  - cloudformation:DescribeStackEvents
-                  - cloudformation:GetTemplate
-                  - cloudformation:DeleteStack
-                  - cloudformation:UpdateTerminationProtection
-                  - sts:GetCallerIdentity
-                  # `cdk import`
-                  - cloudformation:GetTemplateSummary
-                Resource: "*"
-                Effect: Allow
-              - Sid: CliStagingBucket
-                Effect: Allow
-                Action:
-                  - s3:GetObject*
-                  - s3:GetBucket*
-                  - s3:List*
-                Resource:
-                  - Fn::Sub: ${StagingBucket.Arn}
-                  - Fn::Sub: ${StagingBucket.Arn}/*
-              - Sid: ReadVersion
-                Effect: Allow
-                Action:
-                  - ssm:GetParameter
-                  - ssm:GetParameters # CreateChangeSet uses this to evaluate any SSM parameters (like `CdkBootstrapVersion`)
-                Resource:
-                  - Fn::Sub: "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter${CdkBootstrapVersion}"
-            Version: '2012-10-17'
-          PolicyName: default
-      RoleName:
-        Fn::Sub: cdk-${Qualifier}-deploy-role-${AWS::AccountId}-${AWS::Region}
-      Tags:
-        - Key: aws-cdk:bootstrap-role
-          Value: deploy
-  CloudFormationExecutionRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Statement:
-          - Action: sts:AssumeRole
-            Effect: Allow
-            Principal:
-              Service: cloudformation.amazonaws.com
-        Version: '2012-10-17'
-      ManagedPolicyArns:
-        Fn::If:
-          - HasCloudFormationExecutionPolicies
-          - Ref: CloudFormationExecutionPolicies
-          - Fn::If:
-            - HasTrustedAccounts
-            # The CLI will prevent this case from occurring
-            - Ref: AWS::NoValue
-            # The CLI will advertise that we picked this implicitly
-            - - Fn::Sub: "arn:${AWS::Partition}:iam::aws:policy/AdministratorAccess"
-      RoleName:
-        Fn::Sub: cdk-${Qualifier}-cfn-exec-role-${AWS::AccountId}-${AWS::Region}
-      PermissionsBoundary:
-        Fn::If:
-          - PermissionsBoundarySet
-          - Fn::Sub: 'arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/${InputPermissionsBoundary}'
-          - Ref: AWS::NoValue
+LabRoleLookupPolicy:
+  Type: AWS::IAM::Policy
+  Properties:
+    PolicyName: LabRoleLookupPolicy
+    Roles:
+      - Ref: LabRole
+    PolicyDocument:
+      Version: "2012-10-17"
+      Statement:
+        # DENY explícito para desencriptar secretos (como en LookupRole original)
+        - Sid: DenyDecrypt
+          Effect: Deny
+          Action:
+            - kms:Decrypt
+          Resource: "*"
+
+        # Permisos mínimos necesarios para lookup de contexto
+        - Sid: LookupMinimalAccess
+          Effect: Allow
+          Action:
+            - cloudformation:DescribeStacks
+            - ec2:DescribeVpcs
+            - ec2:DescribeSubnets
+            - ec2:DescribeSecurityGroups
+            - iam:GetRole
+            - sts:GetCallerIdentity
+          Resource: "*"
+
+LabRoleDeploymentPolicy:
+  Type: AWS::IAM::Policy
+  Properties:
+    PolicyName: LabRoleDeploymentPolicy
+    Roles:
+      - Ref: LabRole
+    PolicyDocument:
+      Version: "2012-10-17"
+      Statement:
+        - Sid: CloudFormationPermissions
+          Effect: Allow
+          Action:
+            - cloudformation:CreateChangeSet
+            - cloudformation:DeleteChangeSet
+            - cloudformation:DescribeChangeSet
+            - cloudformation:DescribeStacks
+            - cloudformation:ExecuteChangeSet
+            - cloudformation:CreateStack
+            - cloudformation:UpdateStack
+            - cloudformation:RollbackStack
+            - cloudformation:ContinueUpdateRollback
+          Resource: "*"
+
+        - Sid: PipelineCrossAccountArtifactsBucket
+          Effect: Allow
+          Action:
+            - s3:GetObject*
+            - s3:GetBucket*
+            - s3:List*
+            - s3:Abort*
+            - s3:DeleteObject*
+            - s3:PutObject*
+          Resource: "*"
+          Condition:
+            StringNotEquals:
+              s3:ResourceAccount:
+                Ref: 'AWS::AccountId'
+
+        - Sid: PipelineCrossAccountArtifactsKey
+          Effect: Allow
+          Action:
+            - kms:Decrypt
+            - kms:DescribeKey
+            - kms:Encrypt
+            - kms:ReEncrypt*
+            - kms:GenerateDataKey*
+          Resource: "*"
+          Condition:
+            StringEquals:
+              kms:ViaService:
+                Fn::Sub: s3.${AWS::Region}.amazonaws.com
+
+        - Sid: AllowPassExecutionRole
+          Effect: Allow
+          Action:
+            - iam:PassRole
+          Resource:
+            Fn::Sub: "${CloudFormationExecutionRole.Arn}"
+
+        - Sid: CliPermissions
+          Effect: Allow
+          Action:
+            - cloudformation:DescribeStackEvents
+            - cloudformation:GetTemplate
+            - cloudformation:DeleteStack
+            - cloudformation:UpdateTerminationProtection
+            - sts:GetCallerIdentity
+            - cloudformation:GetTemplateSummary
+          Resource: "*"
+
+        - Sid: CliStagingBucket
+          Effect: Allow
+          Action:
+            - s3:GetObject*
+            - s3:GetBucket*
+            - s3:List*
+          Resource:
+            - Fn::Sub: ${StagingBucket.Arn}
+            - Fn::Sub: ${StagingBucket.Arn}/*
+
+        - Sid: ReadVersion
+          Effect: Allow
+          Action:
+            - ssm:GetParameter
+            - ssm:GetParameters
+          Resource:
+            - Fn::Sub: "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter${CdkBootstrapVersion}"
+CloudFormationExecutionPolicy:
+  Type: AWS::IAM::Policy
+  Properties:
+    PolicyName: CloudFormationExecutionPolicy
+    Roles:
+      - LabRole  # Aquí se asigna esta política al rol que ya tengas creado (LabRole)
+    PolicyDocument:
+      Version: '2012-10-17'
+      Statement:
+        - Effect: Allow
+          Action:
+            - cloudformation:*
+            - iam:PassRole
+            - sts:GetCallerIdentity
+          Resource: "*"
+
+
   CdkBoostrapPermissionsBoundaryPolicy:
     # Edit the template prior to boostrap in order to have this example policy created
     Condition: ShouldCreatePermissionsBoundary
