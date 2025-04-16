@@ -3,10 +3,21 @@ from aws_cdk import (
     aws_ec2 as ec2,
 )
 from constructs import Construct
+import aws_cdk.aws_iam as iam
 
 class VmStack(Stack):
     def __init__(self, scope: Construct, id: str, **kwargs):
         super().__init__(scope, id, **kwargs)
+
+        self.execution_role = iam.Role.from_role_arn(
+            self,
+            "ExecutionRole",
+            role_arn="arn:aws:iam::708642711016:role/LabRole"
+        )
+        self.template_options.execution_role_arn = self.execution_role.role_arn
+
+
+
 
         # Traer VPC predeterminada
         vpc = ec2.Vpc.from_lookup(self, "DefaultVPC", is_default=True)
