@@ -7,14 +7,10 @@ import aws_cdk.aws_iam as iam
 
 class VmStack(Stack):
     def __init__(self, scope: Construct, id: str, **kwargs):
-        super().__init__(scope, id, **kwargs)
-
-        self.execution_role = iam.Role.from_role_arn(
-            self,
-            "ExecutionRole",
-            role_arn="arn:aws:iam::708642711016:role/LabRole"
-        )
-        self.template_options.execution_role_arn = self.execution_role.role_arn
+        # Obtén el ARN del rol LabRole de kwargs si se proporciona,
+        # de lo contrario, usa el valor predeterminado.
+        lab_role_arn = kwargs.pop("execute_role_arn", "arn:aws:iam::708642711016:role/LabRole")
+        super().__init__(scope, id, execute_role_arn=lab_role_arn, **kwargs)
 
 
 
