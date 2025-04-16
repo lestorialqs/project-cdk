@@ -1,4 +1,4 @@
-Description: This stack includes resources needed to deploy AWS CDK apps into this environment
+is stack includes resources needed to deploy AWS CDK apps into this environment
 Parameters:
   TrustedAccounts:
     Description: List of AWS accounts that are trusted to publish assets and deploy stacks to this environment
