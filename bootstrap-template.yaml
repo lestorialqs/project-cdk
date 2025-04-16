@@ -1,6 +1,12 @@
 Description: This stack includes resources needed to deploy AWS CDK apps into this
   environment
 Parameters:
+  ExistingLabRoleName:
+      Type: String
+      Description: "El nombre del rol IAM existente (LabRole) al que se adjuntarán estas políticas."
+      # Puedes poner un valor por defecto si siempre es el mismo
+      # Default: MiLabRolePreexistente
+
   TrustedAccounts:
     Description: List of AWS accounts that are trusted to publish assets and deploy
       stacks to this environment
@@ -163,7 +169,7 @@ Resources:
             Effect: Allow
             Principal:
               AWS:
-                Fn::Sub: "${LabRole.Arn}"
+                Fn::Sub: "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${ExistingLabRoleName}"
             Resource: "*"
     Condition: CreateNewKey
     UpdateReplacePolicy: Delete
@@ -326,7 +332,7 @@ Resources:
                 - Fn::Sub: "${FileAssetsBucketEncryptionKey.Arn}"
                 - Fn::Sub: arn:${AWS::Partition}:kms:${AWS::Region}:${AWS::AccountId}:key/${FileAssetsBucketKmsKeyId}
       Roles:
-        - Ref: LabRole  # Aquí asignas la política directamente al rol existente
+        - Ref: ExistingLabRoleName  # Aquí asignas la política directamente al rol existente
       PolicyName: LabRoleFilePublishingPolicy
   LabRoleImagePublishingRoleDefaultPolicy:
     Type: AWS::IAM::Policy
@@ -352,7 +358,7 @@ Resources:
             Effect: Allow
         Version: '2012-10-17'
       Roles:
-        - Ref: LabRole
+        - Ref: ExistingLabRoleName
       PolicyName:
         Fn::Sub: cdk-${Qualifier}-image-publishing-role-default-policy-${AWS::AccountId}-${AWS::Region}
   LabRoleLookupPolicy:
@@ -360,7 +366,7 @@ Resources:
     Properties:
       PolicyName: LabRoleLookupPolicy
       Roles:
-        - Ref: LabRole
+        - Ref: ExistingLabRoleName
       PolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -385,7 +391,7 @@ Resources:
     Properties:
       PolicyName: LabRoleDeploymentPolicy
       Roles:
-        - Ref: LabRole
+        - Ref: ExistingLabRoleName
       PolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -423,13 +429,13 @@ Resources:
             Action:
               - iam:PassRole
             Resource:
-              Fn::Sub: "${LabRole.Arn}"
+              Fn::Sub: "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${ExistingLabRoleName}"
   CloudFormationExecutionPolicy:
     Type: AWS::IAM::Policy
     Properties:
       PolicyName: CloudFormationExecutionPolicy
       Roles:
-        - Ref: LabRole  # Aquí se asigna esta política al rol que ya tengas creado (LabRole)
+        - Ref: ExistingLabRoleName  # Aquí se asigna esta política al rol que ya tengas creado (LabRole)
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
