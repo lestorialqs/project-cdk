@@ -163,7 +163,7 @@ Resources:
             Effect: Allow
             Principal:
               AWS:
-                Fn::Sub: "${FilePublishingRole.Arn}"
+                Fn::Sub: "${LabRole.Arn}"
             Resource: "*"
     Condition: CreateNewKey
     UpdateReplacePolicy: Delete
@@ -291,36 +291,6 @@ Resources:
             Condition:
               StringLike:
                 "aws:sourceArn": { "Fn::Sub": "arn:${AWS::Partition}:emr-serverless:${AWS::Region}:${AWS::AccountId}:/applications/*" }
-  FilePublishingRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Statement:
-          # allows this role to be assumed with session tags.
-          # see https://docs.aws.amazon.com/IAM/latest/UserGuide/id_session-tags.html#id_session-tags_permissions-required
-          - Action: sts:TagSession
-            Effect: Allow
-            Principal:
-              AWS:
-                Ref: AWS::AccountId
-          - Action: sts:AssumeRole
-            Effect: Allow
-            Principal:
-              AWS:
-                Ref: AWS::AccountId
-          - Fn::If:
-              - HasTrustedAccounts
-              - Action: sts:AssumeRole
-                Effect: Allow
-                Principal:
-                  AWS:
-                    Ref: TrustedAccounts
-              - Ref: AWS::NoValue
-      RoleName:
-        Fn::Sub: cdk-${Qualifier}-file-publishing-role-${AWS::AccountId}-${AWS::Region}
-      Tags:
-        - Key: aws-cdk:bootstrap-role
-          Value: file-publishing
   ImagePublishingRole:
     Type: AWS::IAM::Role
     Properties:
@@ -401,18 +371,18 @@ Resources:
       Tags:
         - Key: aws-cdk:bootstrap-role
           Value: lookup
-  FilePublishingRoleDefaultPolicy:
+  LabRolePolicy:
     Type: AWS::IAM::Policy
     Properties:
       PolicyDocument:
+        Version: '2012-10-17'
         Statement:
           - Action:
               - s3:GetObject*
               - s3:GetBucket*
-              - s3:GetEncryptionConfiguration
-              - s3:List*
-              - s3:DeleteObject*
               - s3:PutObject*
+              - s3:DeleteObject*
+              - s3:List*
               - s3:Abort*
             Resource:
               - Fn::Sub: "${StagingBucket.Arn}"
@@ -434,11 +404,9 @@ Resources:
                 - CreateNewKey
                 - Fn::Sub: "${FileAssetsBucketEncryptionKey.Arn}"
                 - Fn::Sub: arn:${AWS::Partition}:kms:${AWS::Region}:${AWS::AccountId}:key/${FileAssetsBucketKmsKeyId}
-        Version: '2012-10-17'
       Roles:
-        - Ref: FilePublishingRole
-      PolicyName:
-        Fn::Sub: cdk-${Qualifier}-file-publishing-role-default-policy-${AWS::AccountId}-${AWS::Region}
+        - Ref: LabRole  # Aquí asignas la política directamente al rol existente
+      PolicyName: LabRoleFilePublishingPolicy
   ImagePublishingRoleDefaultPolicy:
     Type: AWS::IAM::Policy
     Properties:
