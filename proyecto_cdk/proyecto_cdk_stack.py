@@ -42,6 +42,6 @@ class VmStack(Stack):
                     device_name="/dev/xvda",
                     volume=ec2.BlockDeviceVolume.ebs(20)
                 )
-            ]
+            ],
             role=lab_role
         )
