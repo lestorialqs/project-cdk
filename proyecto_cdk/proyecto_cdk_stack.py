@@ -12,13 +12,6 @@ class VmStack(Stack):
         # Obtener el ARN del rol LabRole
         lab_role_arn = "arn:aws:iam::708642711016:role/LabRole"
 
-        # Obtener el recurso CfnStack subyacente
-        cfn_stack = self.node.default_child
-
-        # Establecer la propiedad execute_role_arn
-        if cfn_stack:
-            cfn_stack.add_property_override("ExecutionRoleArn", lab_role_arn)
-
         # Traer VPC predeterminada
         vpc = ec2.Vpc.from_lookup(self, "DefaultVPC", is_default=True)
 
@@ -33,7 +26,7 @@ class VmStack(Stack):
 
         # AMI Ubuntu 22.04 (us-east-1) - reemplaza si tienes otra
         ami = ec2.MachineImage.generic_linux({
-            "us-east-1": "ami-053b0d53c279acc90"
+            "us-east-1": "ami-0c8e5b591b8537909"
         })
 
         # Crear instancia EC2
@@ -50,3 +43,8 @@ class VmStack(Stack):
                 )
             ]
         )
+
+        # Obtener el recurso CfnStack subyacente y establecer la propiedad execute_role_arn
+        cfn_stack = self.node.default_child
+        if cfn_stack:
+            cfn_stack.execute_role_arn = lab_role_arn
