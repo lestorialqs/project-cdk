@@ -9,10 +9,13 @@ class VmStack(Stack):
     def __init__(self, scope: Construct, id: str, **kwargs):
         super().__init__(scope, id, **kwargs)
 
-        # Traer VPC predeterminada
+        # Obtener VPC predeterminada
         vpc = ec2.Vpc.from_lookup(self, "DefaultVPC", is_default=True)
 
-        # Grupo de seguridad para puertos 22 y 80
+        # Obtener una subnet pública de esa VPC
+        subnet_id = vpc.public_subnets[0].subnet_id
+
+        # Grupo de seguridad
         sg = ec2.SecurityGroup(self, "SG",
             vpc=vpc,
             description="Permitir SSH y HTTP",
@@ -21,27 +24,18 @@ class VmStack(Stack):
         sg.add_ingress_rule(ec2.Peer.any_ipv4(), ec2.Port.tcp(22), "SSH")
         sg.add_ingress_rule(ec2.Peer.any_ipv4(), ec2.Port.tcp(80), "HTTP")
 
-        # AMI Ubuntu 22.04 (us-east-1) - reemplaza si tienes otra
-        ami = ec2.MachineImage.generic_linux({
-            "us-east-1": "ami-0c8e5b591b8537909"
-        })
-
-        lab_role = iam.Role.from_role_arn(self, "ImportedLabRole",
-        "arn:aws:iam::708642711016:role/LabRole"
-        )
-
-        # Crear instancia EC2
-        ec2.Instance(self, "Instance-CDK",
-            instance_type=ec2.InstanceType("t2.micro"),
-            machine_image=ami,
-            vpc=vpc,
-            security_group=sg,
-            key_name="vockey",  # Asegúrate de que ya exista en EC2 > Key Pairs
-            block_devices=[
-                ec2.BlockDevice(
-                    device_name="/dev/xvda",
-                    volume=ec2.BlockDeviceVolume.ebs(20)
-                )
-            ],
-            role=lab_role
+        # Instancia EC2 usando CfnInstance
+        ec2.CfnInstance(self, "EC2Instance-aws-cdk",
+            image_id="ami-0f2d4b21b93e88520",  # Cloud9 Ubuntu22 mas reciente
+            instance_type="t2.micro",
+            key_name="vockey",
+            subnet_id=subnet_id,
+            security_group_ids=[sg.security_group_id],
+            block_device_mappings=[{
+                "deviceName": "/dev/xvda",
+                "ebs": {
+                    "volumeSize": 20,
+                    "volumeType": "gp2"
+                }
+            }]
         )
