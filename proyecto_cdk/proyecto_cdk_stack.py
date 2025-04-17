@@ -6,16 +6,8 @@ from constructs import Construct
 import aws_cdk.aws_iam as iam
 
 class VmStack(Stack):
-    def __init__(self, scope: Construct, id: str,*,execute_role_arn: str = None, **kwargs):
-        super().__init__(scope, id, **kwargs)
-
-        if execute_role_arn:
-            self.execute_role = iam.Role.from_role_arn(
-                self,
-                "ExecutionRole",
-                role_arn=execute_role_arn
-            )
-            self.template_options.execution_role_arn = self.execute_role.role_arn
+    def __init__(self, scope: Construct, id: str, *, execute_role_arn: str = None, **kwargs):
+        super().__init__(scope, id, execute_role_arn=execute_role_arn, **kwargs)
 
         # Traer VPC predeterminada
         vpc = ec2.Vpc.from_lookup(self, "DefaultVPC", is_default=True)
