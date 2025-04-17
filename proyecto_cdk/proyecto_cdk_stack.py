@@ -12,8 +12,13 @@ class VmStack(Stack):
         lab_role_arn = kwargs.pop("execute_role_arn", "arn:aws:iam::708642711016:role/LabRole")
         super().__init__(scope, id, execute_role_arn=lab_role_arn, **kwargs)
 
-
-
+        # Ya no necesitamos esto aquí
+        # self.execution_role = iam.Role.from_role_arn(
+        #     self,
+        #     "ExecutionRole",
+        #     role_arn="arn:aws:iam::708642711016:role/LabRole"
+        # )
+        # self.template_options.execution_role_arn = self.execution_role.role_arn
 
         # Traer VPC predeterminada
         vpc = ec2.Vpc.from_lookup(self, "DefaultVPC", is_default=True)
