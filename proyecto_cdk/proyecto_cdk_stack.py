@@ -26,6 +26,10 @@ class VmStack(Stack):
             "us-east-1": "ami-0c8e5b591b8537909"
         })
 
+        lab_role = iam.Role.from_role_arn(self, "ImportedLabRole",
+        "arn:aws:iam::708642711016:role/LabRole"
+        )
+
         # Crear instancia EC2
         ec2.Instance(self, "Instance-CDK",
             instance_type=ec2.InstanceType("t2.micro"),
@@ -39,4 +43,5 @@ class VmStack(Stack):
                     volume=ec2.BlockDeviceVolume.ebs(20)
                 )
             ]
+            role=lab_role
         )
