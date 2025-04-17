@@ -7,18 +7,17 @@ import aws_cdk.aws_iam as iam
 
 class VmStack(Stack):
     def __init__(self, scope: Construct, id: str, **kwargs):
-        # Obtén el ARN del rol LabRole de kwargs si se proporciona,
-        # de lo contrario, usa el valor predeterminado.
-        lab_role_arn = kwargs.pop("execute_role_arn", "arn:aws:iam::708642711016:role/LabRole")
-        super().__init__(scope, id, execute_role_arn=lab_role_arn, **kwargs)
+        super().__init__(scope, id, **kwargs)
 
-        # Ya no necesitamos esto aquí
-        # self.execution_role = iam.Role.from_role_arn(
-        #     self,
-        #     "ExecutionRole",
-        #     role_arn="arn:aws:iam::708642711016:role/LabRole"
-        # )
-        # self.template_options.execution_role_arn = self.execution_role.role_arn
+        # Obtener el ARN del rol LabRole
+        lab_role_arn = "arn:aws:iam::708642711016:role/LabRole"
+
+        # Obtener el recurso CfnStack subyacente
+        cfn_stack = self.node.default_child
+
+        # Establecer la propiedad execute_role_arn
+        if cfn_stack:
+            cfn_stack.add_property_override("ExecutionRoleArn", lab_role_arn)
 
         # Traer VPC predeterminada
         vpc = ec2.Vpc.from_lookup(self, "DefaultVPC", is_default=True)
