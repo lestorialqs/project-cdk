@@ -36,7 +36,7 @@ Parameters:
     Type: String
   Qualifier:
     Description: An identifier to distinguish multiple bootstrap stacks in the same environment
-    Default: proyect-cdk-1
+    Default: projcdk
     Type: String
     AllowedPattern: "[A-Za-z0-9_-]{1,10}"
     ConstraintDescription: Qualifier must be an alphanumeric identifier of at most 10 characters
