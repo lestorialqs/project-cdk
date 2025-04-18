@@ -4,8 +4,6 @@ Parameters:
   ExistingLabRoleName:
     Type: String
     Description: "El nombre del rol IAM existente (LabRole) al que se adjuntarán estas políticas."
-    # Puedes poner un valor por defecto si siempre es el mismo
-    # Default: MiLabRolePreexistente
     Default: LabRole
 
   TrustedAccounts:
@@ -38,10 +36,8 @@ Parameters:
     Type: String
   Qualifier:
     Description: An identifier to distinguish multiple bootstrap stacks in the same environment
-    Default: hnb659fds
+    Default: proyect-cdk
     Type: String
-    # "cdk-(qualifier)-image-publishing-role-(account)-(region)" needs to be <= 64 chars
-    # account = 12, region <= 14, 10 chars for qualifier and 28 for rest of role name
     AllowedPattern: "[A-Za-z0-9_-]{1,10}"
     ConstraintDescription: Qualifier must be an alphanumeric identifier of at most 10 characters
   PublicAccessBlockConfiguration:
@@ -151,12 +147,10 @@ Resources:
               - kms:GenerateDataKey*
             Effect: Allow
             Principal:
-              # Not actually everyone -- see below for Conditions
               AWS: "*"
             Resource: "*"
             Condition:
               StringEquals:
-                # See https://docs.aws.amazon.com/kms/latest/developerguide/policy-conditions.html#conditions-kms-caller-account
                 kms:CallerAccount:
                   Ref: AWS::AccountId
                 kms:ViaService:
@@ -216,7 +210,6 @@ Resources:
         Status: Enabled
       LifecycleConfiguration:
         Rules:
-          # Objects will only be noncurrent if they are deleted via garbage collection.
           - Id: CleanupOldVersions
             Status: Enabled
             NoncurrentVersionExpiration:
@@ -244,118 +237,6 @@ Resources:
             Condition:
               Bool: { 'aws:SecureTransport': 'false' }
             Principal: '*'
-  ContainerAssetsRepository:
-    Type: AWS::ECR::Repository
-    Properties:
-      ImageTagMutability: IMMUTABLE
-      # Untagged images should never exist but Security Hub wants this rule to exist
-      LifecyclePolicy:
-        LifecyclePolicyText: |
-          {
-            "rules": [
-              {
-                "rulePriority": 1,
-                "description": "Untagged images should not exist, but expire any older than one year",
-                "selection": {
-                  "tagStatus": "untagged",
-                  "countType": "sinceImagePushed",
-                  "countUnit": "days",
-                  "countNumber": 365
-                },
-                "action": { "type": "expire" }
-              }
-            ]
-          }
-      RepositoryName:
-        Fn::If:
-          - HasCustomContainerAssetsRepositoryName
-          - Fn::Sub: "${ContainerAssetsRepositoryName}"
-          - Fn::Sub: cdk-${Qualifier}-container-assets-${AWS::AccountId}-${AWS::Region}
-      RepositoryPolicyText:
-        Version: "2012-10-17"
-        Statement:
-          # Necessary for Lambda container images
-          # https://docs.aws.amazon.com/lambda/latest/dg/configuration-images.html#configuration-images-permissions
-          - Sid: LambdaECRImageRetrievalPolicy
-            Effect: Allow
-            Principal: { Service: "lambda.amazonaws.com" }
-            Action:
-              - ecr:BatchGetImage
-              - ecr:GetDownloadUrlForLayer
-            Condition:
-              StringLike:
-                "aws:sourceArn": { "Fn::Sub": "arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:*" }
-          # Necessary for EMR Serverless container images
-          # https://docs.aws.amazon.com/emr/latest/EMR-Serverless-UserGuide/application-custom-image.html#access-repo
-          - Sid: EmrServerlessImageRetrievalPolicy
-            Effect: Allow
-            Principal:
-              Service: emr-serverless.amazonaws.com
-            Action:
-              - ecr:BatchGetImage
-              - ecr:GetDownloadUrlForLayer
-              - ecr:DescribeImages
-            Condition:
-              StringLike:
-                "aws:sourceArn": { "Fn::Sub": "arn:${AWS::Partition}:emr-serverless:${AWS::Region}:${AWS::AccountId}:/applications/*" }
-
-  CdkBoostrapPermissionsBoundaryPolicy:
-    # Edit the template prior to boostrap in order to have this example policy created
-    Condition: ShouldCreatePermissionsBoundary
-    Type: AWS::IAM::ManagedPolicy
-    Properties:
-      PolicyDocument:
-        Statement:
-          # If permission boundaries do not have an explicit `allow`, then the effect is `deny`
-          - Sid: ExplicitAllowAll
-            Action:
-              - "*"
-            Effect: Allow
-            Resource: "*"
-          # Default permissions to prevent privilege escalation
-          - Sid: DenyAccessIfRequiredPermBoundaryIsNotBeingApplied
-            Action:
-              - iam:CreateUser
-              - iam:CreateRole
-              - iam:PutRolePermissionsBoundary
-              - iam:PutUserPermissionsBoundary
-            Condition:
-              StringNotEquals:
-                iam:PermissionsBoundary:
-                  Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/cdk-${Qualifier}-permissions-boundary-${AWS::AccountId}-${AWS::Region}
-            Effect: Deny
-            Resource: "*"
-          # Forbid the policy itself being edited
-          - Sid: DenyPermBoundaryIAMPolicyAlteration
-            Action:
-              - iam:CreatePolicyVersion
-              - iam:DeletePolicy
-              - iam:DeletePolicyVersion
-              - iam:SetDefaultPolicyVersion
-            Effect: Deny
-            Resource:
-              Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/cdk-${Qualifier}-permissions-boundary-${AWS::AccountId}-${AWS::Region}
-          # Forbid removing the permissions boundary from any user or role that has it associated
-          - Sid: DenyRemovalOfPermBoundaryFromAnyUserOrRole
-            Action:
-              - iam:DeleteUserPermissionsBoundary
-              - iam:DeleteRolePermissionsBoundary
-            Effect: Deny
-            Resource: "*"
-          # Add your specific organizational security policy here
-          # Uncomment the example to deny access to AWS Config
-          #- Sid: OrganizationalSecurityPolicy
-          #  Action:
-          #    - "config:*"
-          #  Effect: Deny
-          #  Resource: "*"
-        Version: "2012-10-17"
-      Description: "Bootstrap Permission Boundary"
-      ManagedPolicyName:
-        Fn::Sub: cdk-${Qualifier}-permissions-boundary-${AWS::AccountId}-${AWS::Region}
-      Path: /
-  # The SSM parameter is used in pipeline-deployed templates to verify the version
-  # of the bootstrap resources.
   CdkBootstrapVersion:
     Type: AWS::SSM::Parameter
     Properties:
@@ -365,33 +246,10 @@ Resources:
       Value: '27'
 Outputs:
   BucketName:
-    Description: The name of the S3 bucket owned by the CDK toolkit stack
+    Description: Nombre del bucket de staging
     Value:
       Fn::Sub: "${StagingBucket}"
-  BucketDomainName:
-    Description: The domain name of the S3 bucket owned by the CDK toolkit stack
-    Value:
-      Fn::Sub: "${StagingBucket.RegionalDomainName}"
-  # @deprecated - This Export can be removed at some future point in time.
-  # We can't do it today because if there are stacks that use it, the bootstrap
-  # stack cannot be updated. Not used anymore by apps >= 1.60.0
-  FileAssetKeyArn:
-    Description: The ARN of the KMS key used to encrypt the asset bucket (deprecated)
-    Value:
-      Fn::If:
-        - CreateNewKey
-        - Fn::Sub: "${FileAssetsBucketEncryptionKey.Arn}"
-        - Fn::Sub: "${FileAssetsBucketKmsKeyId}"
-    Export:
-      Name:
-        Fn::Sub: CdkBootstrap-${Qualifier}-FileAssetKeyArn
-  ImageRepositoryName:
-    Description: The name of the ECR repository which hosts docker image assets
-    Value:
-      Fn::Sub: "${ContainerAssetsRepository}"
-  # The Output is used by the CLI to verify the version of the bootstrap resources.
   BootstrapVersion:
-    Description: The version of the bootstrap resources that are currently mastered
-      in this stack
+    Description: Version del boostrap realizado
     Value:
       Fn::GetAtt: [CdkBootstrapVersion, Value]
