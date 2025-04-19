@@ -2,6 +2,7 @@ from aws_cdk import (
     Stack,
     aws_ec2 as ec2,
 )
+import aws_cdk as cdk
 from constructs import Construct
 import aws_cdk.aws_iam as iam
 
