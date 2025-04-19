@@ -38,7 +38,7 @@ class VmStack(Stack):
                     "volumeSize": 20,
                     "volumeType": "gp2" 
                 }
-            }]
+            }],
             tags=[cdk.CfnTag(
                 key="Name",
                 value="EC2Instance-aws-cdk"
