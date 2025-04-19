@@ -1,12 +1,8 @@
-from aws_cdk import (
-    Stack,
-    aws_ec2 as ec2,
-)
-from constructs import Construct
-import aws_cdk.aws_iam as iam
+from aws_cdk import core
+import aws_cdk.aws_ec2 as ec2
 
-class VmStack(Stack):
-    def __init__(self, scope: Construct, id: str, **kwargs):
+class VmStack(core.Stack):
+    def __init__(self, scope: core.Construct, id: str, **kwargs):
         super().__init__(scope, id, **kwargs)
 
         # Obtener VPC predeterminada
@@ -21,22 +17,19 @@ class VmStack(Stack):
             description="Permitir SSH y HTTP",
             allow_all_outbound=True
         )
-        #Permitir el acceso ssh y http
+        # Permitir el acceso SSH y HTTP
         sg.add_ingress_rule(ec2.Peer.any_ipv4(), ec2.Port.tcp(22), "SSH")
         sg.add_ingress_rule(ec2.Peer.any_ipv4(), ec2.Port.tcp(80), "HTTP")
 
-        # Crear Instancia EC2 usando CfnInstance
-        ec2.CfnInstance(self, "EC2Instance-aws-cdk",
-            image_id="ami-0f2d4b21b93e88520",  # Cloud9 Ubuntu22 mas reciente
-            instance_type="t2.micro", #Tipo de la instancia
+        # Crear instancia EC2 usando ec2.Instance
+        instancia = ec2.Instance(self, "EC2Instance-aws-cdk-stack",
+            instance_type=ec2.InstanceType("t2.micro"),
+            machine_image=ec2.MachineImage.generic_linux({
+                "us-east-1": "ami-0f2d4b21b93e88520"  # ID de la imagen AMI
+            }),
+            vpc=vpc,
+            vpc_subnets={"subnet_id": subnet_id},
+            security_group=sg,
             key_name="vockey",
-            subnet_id=subnet_id,
-            security_group_ids=[sg.security_group_id],
-            block_device_mappings=[{
-                "deviceName": "/dev/xvda",
-                "ebs": {
-                    "volumeSize": 20,
-                    "volumeType": "gp2" 
-                }
-            }]
+            instance_name="Prueba-Instance-CDK"  # Asignar nombre a la instancia
         )
