@@ -10,6 +10,7 @@ app = cdk.App()
 custom_execution_role = "arn:aws:iam::708642711016:role/LabRole"
 
 synth = DefaultStackSynthesizer(
+    qualifier="projcdk",
     cloud_formation_execution_role=custom_execution_role
 )
 
